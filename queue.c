@@ -29,12 +29,17 @@ void q_free(struct list_head *l)
 {
     if (!l)
         return;
+    if (list_empty(l)) {
+        free(l);
+        return;
+    }
     element_t *c, *n;
     list_for_each_entry_safe (c, n, l, list) {
         list_del(&c->list);
         q_release_element(c);
     }
     free(l);  // q_new function has malloced it
+    return;
 }
 
 /* Insert an element at head of queue */
