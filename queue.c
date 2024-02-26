@@ -51,14 +51,10 @@ bool q_insert_head(struct list_head *head, char *s)
     if (!new_element) {
         return false;
     }
-    size_t len = strlen(s) + 1;  // plus 1 for `\0`
-    new_element->value = malloc(len * sizeof(char));
+    new_element->value = strdup(s);
     if (!new_element->value) {  // If allocate failed
         free(new_element);
         return false;
-    }
-    for (int i = 0; i <= len; i++) {  // when i == len, the char is \0
-        *(new_element->value + i) = *(s + i);
     }
     list_add(&new_element->list, head);
     return true;
