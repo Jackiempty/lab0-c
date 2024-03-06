@@ -74,13 +74,13 @@ bool q_insert_tail(struct list_head *head, char *s)
 /* Remove an element from head of queue */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!sp || !head || list_empty(head))
+    if (!head || list_empty(head))
         return NULL;
     element_t *rm_element = list_entry(head->next, element_t, list);
-
-    memcpy(sp, rm_element->value, bufsize);
-    sp[bufsize - 1] = '\0';
-
+    if (sp) {
+        memcpy(sp, rm_element->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    }
     list_del(head->next);
     return rm_element;
 }
@@ -92,7 +92,7 @@ element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
         return NULL;
     element_t *rm_element = list_last_entry(head, element_t, list);
     if (sp) {
-        strncpy(sp, rm_element->value, bufsize - 1);
+        memcpy(sp, rm_element->value, bufsize - 1);
         sp[bufsize - 1] = '\0';
     }
     list_del(head->prev);
@@ -176,7 +176,8 @@ void q_swap(struct list_head *head)
     struct list_head *n = head->next;
     while (n != head && n->next != head) {
         struct list_head *t = n;
-        list_move(n, t->next);
+        list_del(n);
+        list_add(n, t->next);
         n = n->next;
     }
 }
@@ -338,12 +339,7 @@ struct list_head *merge_two_list(struct list_head *left,
         }
     }
     // after merge, there are still one node still not connect yet
-
-    if (left) {
-        h->next = left;
-    } else if (right) {
-        h->next = right;
-    }
+    h->next = left ? left : right;
     return head.next;
 }
 
