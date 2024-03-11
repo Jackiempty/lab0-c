@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "list.h"
 #include "queue.h"
 
 // local function declaration
@@ -9,6 +10,10 @@ struct list_head *merge_two_list(struct list_head *left,
                                  struct list_head *right);
 
 struct list_head *merge_recur(struct list_head *head);
+
+void quick_sort(struct list_head *head, int len);
+
+// int count_level(int len);
 
 /* Notice: sometimes, Cppcheck would find the potential NULL pointer bugs,
  * but some of them cannot occur. You can suppress them by adding the
@@ -227,18 +232,13 @@ void q_sort(struct list_head *head, bool descend)
 {
     if (!head || list_empty(head))
         return;
-    // disconnect the circular structure
-    head->prev->next = NULL;
-    head->next = merge_recur(head->next);
+
+    quick_sort(head, q_size(head));
+
     // reconnect the list (prev and circular)
-    struct list_head *c = head, *n = head->next;
-    while (n) {
-        n->prev = c;
-        c = n;
-        n = n->next;
-    }
-    c->next = head;
-    head->prev = c;
+    // if (descend)
+    //      q_reverse(head);
+    return;
 }
 
 /* Remove every node which has a node with a strictly less value anywhere to
@@ -362,4 +362,79 @@ struct list_head *merge_recur(struct list_head *head)
     struct list_head *right = merge_recur(mid);
 
     return merge_two_list(left, right);
+}
+
+/*
+int count_level(int n)
+{
+    int i = 0;
+    while (n /= 10)
+        i++;
+    return i ? (i + 1) * 10 : 10;
+}
+*/
+
+void quick_sort(struct list_head *head, int len)
+{
+#define max_level 300
+
+    int i = 0;
+    // int max_level = count_level(n);
+    struct list_head *begin[max_level], *end[max_level];
+    struct list_head res, l, r;
+    struct list_head *result = &res, *left = &l, *right = &r;
+    INIT_LIST_HEAD(result);
+    INIT_LIST_HEAD(left);
+    INIT_LIST_HEAD(right);
+
+    begin[0] = head->next;
+    end[0] = head->prev;
+    while (i >= 0) {
+        struct list_head temp;
+        struct list_head *t = &temp;
+        INIT_LIST_HEAD(t);
+        if (begin[i] && end[i]) {
+            t->next = begin[i];
+            t->prev = end[i];
+            begin[i]->prev = t;
+            end[i]->next = t;
+        }
+
+        struct list_head *L = begin[i], *R = end[i];
+        if (L != R) {
+            struct list_head *pivot = L;
+            struct list_head *p = pivot->next;
+            list_del_init(pivot);
+
+            while (p != t) {
+                struct list_head *n = p;
+                p = p->next;
+                list_add(n,
+                         strcmp(list_entry(n, element_t, list)->value,
+                                list_entry(pivot, element_t, list)->value) > 0
+                             ? right
+                             : left);
+            }
+
+            begin[i] = list_empty(left) ? NULL : left->next;
+            end[i] = list_empty(left) ? NULL : left->prev;
+            begin[i + 1] = pivot;
+            end[i + 1] = pivot;
+            begin[i + 2] = list_empty(right) ? NULL : right->next;
+            end[i + 2] = list_empty(right) ? NULL : right->prev;
+
+            INIT_LIST_HEAD(left);
+            INIT_LIST_HEAD(right);
+            i += 2;
+        } else {
+            if (!list_empty(t))
+                list_add(t->next, result);
+            i--;
+        }
+    }
+    head->next = result->next;
+    head->prev = result->prev;
+    result->next->prev = head;
+    result->prev->next = head;
+    return;
 }
