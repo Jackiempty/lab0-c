@@ -1012,6 +1012,8 @@ static bool do_next(int argc, char *argv[])
     return q_show(0);
 }
 
+static bool do_shuffle(int argc, char *argv[]);
+
 static void console_init()
 {
     ADD_COMMAND(new, "Create new queue", "");
@@ -1052,6 +1054,7 @@ static void console_init()
                 "");
     ADD_COMMAND(reverseK, "Reverse the nodes of the queue 'K' at a time",
                 "[K]");
+    ADD_COMMAND(shuffle, "Shuffle queue", "");
     add_param("length", &string_length, "Maximum length of displayed string",
               NULL);
     add_param("malloc", &fail_probability, "Malloc failure probability percent",
@@ -1182,6 +1185,49 @@ uintptr_t os_random(uintptr_t seed)
 }
 
 #define BUFSIZE 256
+
+void q_shuffle(struct list_head *head);
+
+static bool do_shuffle(int argc, char *argv[])
+{
+    if (argc != 1) {
+        report(1, "%s takes no argu,emts", argv[0]);  // return function error
+        return false;
+    }
+
+    if (!current || !current->q)
+        report(3, "Warning: Calling shuffle on null queue");
+    error_check();
+
+    if (exception_setup(true))
+        q_shuffle(current->q);
+    exception_cancel();
+
+    set_noallocate_mode(false);
+
+    q_show(3);
+    return !error_check();
+}
+
+void q_shuffle(struct list_head *head)
+{
+    if (!head || list_empty(head))
+        return;
+    int size = q_size(head);
+
+    // shuffle
+    for (int i = 0; i < size;) {  // not iterate i , iterate size
+        struct list_head *start = head->next;
+        int rand_idx = rand() % size;  // random number in range 0~ (size-1)
+        for (int j = 0; j < rand_idx; j++) {
+            start = start->next;
+        }
+        list_move_tail(start, head);
+        size--;
+    }
+    return;
+}
+
 int main(int argc, char *argv[])
 {
     /* sanity check for git hook integration */
