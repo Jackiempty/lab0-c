@@ -172,9 +172,11 @@ static void fill_rand_string(char *buf, size_t buf_size)
     while (len < MIN_RANDSTR_LEN)
         len = rand() % buf_size;
 
-    randombytes((uint8_t *) buf, len);
+    uint64_t randstr_buf_64[MAX_RANDSTR_LEN] = {0};
+    randombytes((uint8_t *) randstr_buf_64, len * sizeof(uint64_t));
     for (size_t n = 0; n < len; n++)
-        buf[n] = charset[buf[n] % (sizeof(charset) - 1)];
+        buf[n] = charset[randstr_buf_64[n] % (sizeof(charset) - 1)];
+
     buf[len] = '\0';
 }
 
@@ -540,11 +542,6 @@ static bool do_size(int argc, char *argv[])
 
     int reps = 1;
     bool ok = true;
-    if (argc != 1 && argc != 2) {
-        report(1, "%s needs 0-1 arguments", argv[0]);
-        return false;
-    }
-
     if (argc == 2) {
         if (!get_int(argv[1], &reps))
             report(1, "Invalid number of calls to size '%s'", argv[2]);
@@ -598,6 +595,23 @@ bool do_sort(int argc, char *argv[])
     error_check();
 
     set_noallocate_mode(true);
+
+/* If the number of elements is too large, it may take a long time to check the
+ * stability of the sort. So, MAX_NODES is used to limit the number of elements
+ * to check the stability of the sort. */
+#define MAX_NODES 100000
+    struct list_head *nodes[MAX_NODES];
+    unsigned no = 0;
+    if (current && current->size && current->size <= MAX_NODES) {
+        element_t *entry;
+        list_for_each_entry (entry, current->q, list)
+            nodes[no++] = &entry->list;
+    } else if (current && current->size > MAX_NODES)
+        report(1,
+               "Warning: Skip checking the stability of the sort because the "
+               "number of elements %d is too large, exceeds the limit %d.",
+               current->size, MAX_NODES);
+
     if (current && exception_setup(true))
         q_sort(current->q, descend);
     exception_cancel();
@@ -622,8 +636,32 @@ bool do_sort(int argc, char *argv[])
                 ok = false;
                 break;
             }
+            /* Ensure the stability of the sort */
+            if (current->size <= MAX_NODES &&
+                !strcmp(item->value, next_item->value)) {
+                bool unstable = false;
+                for (unsigned i = 0; i < MAX_NODES; i++) {
+                    if (nodes[i] == cur_l->next) {
+                        unstable = true;
+                        break;
+                    }
+                    if (nodes[i] == cur_l) {
+                        break;
+                    }
+                }
+                if (unstable) {
+                    report(
+                        1,
+                        "ERROR: Not stable sort. The duplicate strings \"%s\" "
+                        "are not in the same order.",
+                        item->value);
+                    ok = false;
+                    break;
+                }
+            }
         }
     }
+#undef MAX_NODES
 
     q_show(3);
     return ok && !error_check();
@@ -878,17 +916,23 @@ static bool do_merge(int argc, char *argv[])
 static bool is_circular()
 {
     struct list_head *cur = current->q->next;
+    struct list_head *fast = (cur) ? cur->next : NULL;
     while (cur != current->q) {
-        if (!cur)
+        if (!cur || !fast || !fast->next)
+            return false;
+        if (cur == fast)
             return false;
         cur = cur->next;
+        fast = fast->next->next;
     }
 
     cur = current->q->prev;
+    fast = (cur) ? cur->prev : NULL;
     while (cur != current->q) {
-        if (!cur)
+        if (!cur || !fast || !fast->prev)
             return false;
         cur = cur->prev;
+        fast = fast->prev->prev;
     }
     return true;
 }
