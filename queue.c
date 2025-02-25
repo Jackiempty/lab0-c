@@ -224,7 +224,7 @@ void q_sort(struct list_head *head, bool descend)
     // disconnect the circular structure
     head->prev->next = NULL;
     head->next = merge_recur(head->next);
-    if (descend) {
+    if (!descend) {
         // reconnect the list (prev and circular)
         struct list_head *c = head, *n = head->next;
         while (n) {
@@ -322,7 +322,7 @@ struct list_head *merge_two_list(struct list_head *left,
     }
     while (left && right) {
         if (strcmp(list_entry(left, element_t, list)->value,
-                   list_entry(right, element_t, list)->value) < 0) {
+                   list_entry(right, element_t, list)->value) <= 0) {
             h->next = left;
             left = left->next;
             h = h->next;
