@@ -224,15 +224,29 @@ void q_sort(struct list_head *head, bool descend)
     // disconnect the circular structure
     head->prev->next = NULL;
     head->next = merge_recur(head->next);
-    // reconnect the list (prev and circular)
-    struct list_head *c = head, *n = head->next;
-    while (n) {
-        n->prev = c;
-        c = n;
-        n = n->next;
+    if (descend) {
+        // reconnect the list (prev and circular)
+        struct list_head *c = head, *n = head->next;
+        while (n) {
+            n->prev = c;
+            c = n;
+            n = n->next;
+        }
+        c->next = head;
+        head->prev = c;
+    } else {
+        struct list_head *c = head, *n = head->next, *b = head->next->next;
+        while (b) {
+            n->next = c;
+            n->prev = b;
+            c = n;
+            n = b;
+            b = b->next;
+        }
+        n->next = c;
+        n->prev = head;
+        head->next = n;
     }
-    c->next = head;
-    head->prev = c;
 }
 
 /* Remove every node which has a node with a strictly less value anywhere to
@@ -292,7 +306,7 @@ int q_merge(struct list_head *head, bool descend)
         list_splice_init(que->q, fir->q);
         que->size = 0;
     }
-    q_sort(fir->q);
+    q_sort(fir->q, descend);
     fir->size = q_size(fir->q);
     return fir->size;
 }
