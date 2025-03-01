@@ -39,12 +39,14 @@ void q_free(struct list_head *head)
         free(head);
         return;
     }
-    element_t *c, *n;
+    struct list_head *c, *n;
     c = NULL;
     n = NULL;
-    list_for_each_entry_safe (c, n, head, list) {
-        list_del(&c->list);
-        q_release_element(c);
+    list_for_each_safe (c, n, head) {
+        element_t *e = container_of(c, element_t, list);
+        // list_del(c);
+        free(e->value);
+        free(e);
     }
     free(head);  // q_new function has malloced it
     return;
@@ -142,7 +144,14 @@ bool q_delete_dup(struct list_head *head)
             struct list_head *safe = cur->next;
             element_t *c = container_of(cur, element_t, list),
                       *n = container_of(cur->next, element_t, list);
-            if (!strcmp(c->value, n->value)) {
+            int len = 0;
+            int c_len = strlen(c->value), n_len = strlen(n->value);
+            if (c_len < n_len) {
+                len = n_len;
+            } else {
+                len = c_len;
+            }
+            if (!memcmp(c->value, n->value, len)) {
                 do {
                     struct list_head *next = n->list.next;
                     list_del(&n->list);
@@ -150,7 +159,7 @@ bool q_delete_dup(struct list_head *head)
                     if (next == head)
                         break;
                     n = container_of(next, element_t, list);
-                } while (!strcmp(c->value, n->value));
+                } while (!memcmp(c->value, n->value, len));
                 safe = cur->next;
                 list_del(&c->list);
                 q_release_element(c);
